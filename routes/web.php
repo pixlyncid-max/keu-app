@@ -13,13 +13,21 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/{any?}', function () {
-    $indexPath = public_path('index.html');
+    $possiblePaths = [
+        public_path('index.html'),
+        base_path('index.html'),
+        base_path('public/index.html'),
+        __DIR__ . '/../public/index.html',
+        dirname(__DIR__) . '/index.html',
+    ];
 
-    if (File::exists($indexPath)) {
-        return response()->file($indexPath, [
-            'Content-Type' => 'text/html',
-        ]);
+    foreach ($possiblePaths as $path) {
+        if (File::exists($path)) {
+            return response()->file($path, [
+                'Content-Type' => 'text/html; charset=UTF-8',
+            ]);
+        }
     }
 
-    return view('welcome');
+    return response('File index.html tidak ditemukan. Pastikan folder assets dan index.html sudah diupload.', 404);
 })->where('any', '^(?!api).*$');
