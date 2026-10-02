@@ -51,22 +51,18 @@ function StatementDocument({ statement, user, selectedMonth }) {
         {/* Left: Bank Logo & Branch */}
         <div className="flex flex-col">
           <div className="flex items-center gap-2 mb-1">
-            {/* BCA Official Emblem & Text */}
-            <div className="flex items-center gap-1.5">
+            {/* Keu-Ku Brand Logo Emblem & Text */}
+            <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-[#005EAA] flex items-center justify-center text-white font-black text-sm shadow-sm shrink-0">
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <circle cx="12" cy="12" r="10" fill="#005EAA" />
-                  <path d="M7 8h4.5a3 3 0 0 1 0 4.5A3 3 0 0 1 7 17H7V8zm2.5 3h2a1.5 1.5 0 0 0 0-3h-2v3zm0 4.5h2a1.5 1.5 0 0 0 0-3h-2v3z" fill="#ffffff" />
-                  <path d="M15 8h2v9h-2z" fill="#ffffff" />
-                </svg>
+                <span className="font-black text-base">K</span>
               </div>
               <span className="text-2xl font-black text-[#005EAA] tracking-tight">
-                {bankName.toUpperCase().includes('BCA') ? 'BCA' : bankName.toUpperCase()}
+                Keu-Ku
               </span>
             </div>
           </div>
           <span className="text-[10px] font-semibold text-gray-700 tracking-wider">
-            {statement.bank_info?.cabang || 'KCP UTAMA'}
+            KCP SAMARINDA UTAMA
           </span>
         </div>
 
@@ -84,9 +80,9 @@ function StatementDocument({ statement, user, selectedMonth }) {
         <div className="border border-black rounded-lg p-3 text-[11px] leading-relaxed font-mono">
           <p className="font-bold text-black text-xs uppercase">{statement.nasabah?.nama}</p>
           <p className="text-gray-800">{user?.email || 'NASABAH TERDAFTAR'}</p>
-          <p className="text-gray-800">CIKAMPEK RT 005 RW 003</p>
-          <p className="text-gray-800">PERUM GIYA</p>
-          <p className="text-gray-800">KARAWANG 41311</p>
+          <p className="text-gray-800">Delima Dalam</p>
+          <p className="text-gray-800">Samarinda</p>
+          <p className="text-gray-800">Kalimantan Timur</p>
           <p className="text-gray-800 font-bold">INDONESIA</p>
         </div>
 
@@ -138,7 +134,7 @@ function StatementDocument({ statement, user, selectedMonth }) {
           <p className="flex items-start gap-1">
             <span>•</span>
             <span>
-              BCA berhak setiap saat melakukan koreksi apabila ada kesalahan pada Laporan
+              Keu-Ku berhak setiap saat melakukan koreksi apabila ada kesalahan pada Laporan
               Mutasi Rekening.
             </span>
           </p>
