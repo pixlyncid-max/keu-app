@@ -1,0 +1,12 @@
+{
+  "$schema": "https://www.schemastore.org/package.json",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm --prefix client run build",
+    "dev": "php artisan serve"
+  },
+  "devDependencies": {
+    "axios": "^1.20.0"
+  }
+}
