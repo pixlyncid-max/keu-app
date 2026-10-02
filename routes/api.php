@@ -166,9 +166,10 @@ Route::prefix('v1')->group(function () {
         // LAPORAN & RINGKASAN DASHBOARD (Reports)
         // ----------------------------------------------------------------
         Route::prefix('reports')->group(function () {
-            Route::get('/summary',       [ReportController::class, 'summary']);
-            Route::get('/categories',    [ReportController::class, 'categories']);
-            Route::get('/monthly-trend', [ReportController::class, 'monthlyTrend']);
+            Route::get('/summary',        [ReportController::class, 'summary']);
+            Route::get('/categories',     [ReportController::class, 'categories']);
+            Route::get('/monthly-trend',  [ReportController::class, 'monthlyTrend']);
+            Route::get('/bank-statement', [ReportController::class, 'bankStatement']);
         });
 
         // ----------------------------------------------------------------

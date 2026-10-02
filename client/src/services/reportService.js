@@ -15,4 +15,9 @@ export const reportService = {
     const res = await api.get('/reports/monthly-trend', { params: { months } })
     return res.data
   },
+
+  async getBankStatement(params = {}) {
+    const res = await api.get('/reports/bank-statement', { params })
+    return res.data
+  },
 }

@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Transaction;
+use App\Models\Transfer;
 use App\Models\User;
+use App\Models\Wallet;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -154,5 +156,301 @@ class ReportService
         }
 
         return array_values($monthlyMap);
+    }
+
+    /**
+     * Hasilkan data Rekening Koran / Mutasi Rekening bergaya perbankan resmi (BCA / Tahapan).
+     */
+    public function getBankStatement(User $user, ?int $walletId, int $month, int $year): array
+    {
+        $month = max(1, min(12, $month));
+        $year = max(2000, min(2100, $year));
+
+        $startOfMonth = Carbon::createFromDate($year, $month, 1)->startOfDay();
+        $endOfMonth = (clone $startOfMonth)->endOfMonth()->endOfDay();
+        $startDateStr = $startOfMonth->toDateString();
+        $endDateStr = $endOfMonth->toDateString();
+
+        $monthNamesIndo = [
+            1 => 'JANUARI', 2 => 'FEBRUARI', 3 => 'MARET', 4 => 'APRIL',
+            5 => 'MEI', 6 => 'JUNI', 7 => 'JULI', 8 => 'AGUSTUS',
+            9 => 'SEPTEMBER', 10 => 'OKTOBER', 11 => 'NOVEMBER', 12 => 'DESEMBER'
+        ];
+        $namaBulan = ($monthNamesIndo[$month] ?? 'BULAN') . ' ' . $year;
+
+        $wallet = null;
+        if ($walletId) {
+            $wallet = Wallet::where('user_id', $user->id)->findOrFail($walletId);
+        }
+
+        // 1. Hitung Saldo Awal sebelum tanggal 1 bulan ini
+        if ($wallet) {
+            $saldoAwal = (float) $wallet->saldo_awal;
+
+            $txMasukBefore = (float) Transaction::where('wallet_id', $wallet->id)
+                ->where('tipe', 'pemasukan')
+                ->where('tanggal', '<', $startDateStr)
+                ->sum('nominal');
+
+            $txKeluarBefore = (float) Transaction::where('wallet_id', $wallet->id)
+                ->where('tipe', 'pengeluaran')
+                ->where('tanggal', '<', $startDateStr)
+                ->sum('nominal');
+
+            $tfMasukBefore = (float) Transfer::where('ke_wallet_id', $wallet->id)
+                ->where('tanggal', '<', $startDateStr)
+                ->sum('nominal');
+
+            $tfKeluarBefore = (float) Transfer::where('dari_wallet_id', $wallet->id)
+                ->where('tanggal', '<', $startDateStr)
+                ->sum(DB::raw('nominal + biaya_admin'));
+
+            $saldoAwal = round($saldoAwal + $txMasukBefore - $txKeluarBefore + $tfMasukBefore - $tfKeluarBefore, 2);
+        } else {
+            $wallets = Wallet::where('user_id', $user->id)->get();
+            $saldoAwal = (float) $wallets->sum('saldo_awal');
+
+            $txMasukBefore = (float) Transaction::where('user_id', $user->id)
+                ->where('tipe', 'pemasukan')
+                ->where('tanggal', '<', $startDateStr)
+                ->sum('nominal');
+
+            $txKeluarBefore = (float) Transaction::where('user_id', $user->id)
+                ->where('tipe', 'pengeluaran')
+                ->where('tanggal', '<', $startDateStr)
+                ->sum('nominal');
+
+            $tfAdminBefore = (float) Transfer::where('user_id', $user->id)
+                ->where('tanggal', '<', $startDateStr)
+                ->sum('biaya_admin');
+
+            $saldoAwal = round($saldoAwal + $txMasukBefore - $txKeluarBefore - $tfAdminBefore, 2);
+        }
+
+        // 2. Kumpulkan mutasi selama bulan ini
+        $rawMutasi = [];
+
+        if ($wallet) {
+            // Transaksi wallet ini
+            $transactions = Transaction::where('wallet_id', $wallet->id)
+                ->whereBetween('tanggal', [$startDateStr, $endDateStr])
+                ->with('category')
+                ->get();
+
+            foreach ($transactions as $tx) {
+                $isPemasukan = $tx->tipe === 'pemasukan';
+                $catatan = trim($tx->catatan ?? '');
+                $categoryName = $tx->category?->nama ? strtoupper($tx->category->nama) : '';
+
+                if ($isPemasukan) {
+                    $ket = $catatan ? strtoupper($catatan) : ($categoryName ?: 'SETORAN / PEMASUKAN');
+                    if (!str_contains($ket, 'TRSF') && !str_contains($ket, 'SETORAN') && !str_contains($ket, 'GAJI')) {
+                        $ket = 'SETORAN / ' . $ket;
+                    }
+                } else {
+                    $ket = $catatan ? strtoupper($catatan) : ($categoryName ?: 'PENARIKAN / PENGELUARAN');
+                    if (!str_contains($ket, 'SWITCHING') && !str_contains($ket, 'TRSF') && !str_contains($ket, 'QRIS') && !str_contains($ket, 'DEBET') && !str_contains($ket, 'BIAYA')) {
+                        $ket = 'SWITCHING DB ' . $ket;
+                    }
+                }
+
+                $rawMutasi[] = [
+                    'sort_date'   => Carbon::parse($tx->tanggal)->format('Y-m-d') . ' ' . ($tx->created_at ? $tx->created_at->format('H:i:s') : '00:00:00'),
+                    'id'          => $tx->id,
+                    'tanggal'     => Carbon::parse($tx->tanggal)->format('d/m'),
+                    'tanggal_full'=> Carbon::parse($tx->tanggal)->format('Y-m-d'),
+                    'keterangan'  => $ket,
+                    'cbg'         => sprintf('%03d', ($tx->category_id ?? 1) % 900 + 10),
+                    'tipe'        => $isPemasukan ? 'CR' : 'DB',
+                    'nominal'     => (float) $tx->nominal,
+                ];
+            }
+
+            // Transfer Masuk
+            $transfersMasuk = Transfer::where('ke_wallet_id', $wallet->id)
+                ->whereBetween('tanggal', [$startDateStr, $endDateStr])
+                ->with('dariWallet')
+                ->get();
+
+            foreach ($transfersMasuk as $tf) {
+                $dari = $tf->dariWallet ? strtoupper($tf->dariWallet->nama) : 'REKENING LAIN';
+                $catatan = $tf->catatan ? ' ' . strtoupper($tf->catatan) : '';
+                $rawMutasi[] = [
+                    'sort_date'   => Carbon::parse($tf->tanggal)->format('Y-m-d') . ' ' . ($tf->created_at ? $tf->created_at->format('H:i:s') : '00:00:00'),
+                    'id'          => 1000000 + $tf->id,
+                    'tanggal'     => Carbon::parse($tf->tanggal)->format('d/m'),
+                    'tanggal_full'=> Carbon::parse($tf->tanggal)->format('Y-m-d'),
+                    'keterangan'  => "TRSF E-BANKING CR DARI {$dari}{$catatan}",
+                    'cbg'         => '016',
+                    'tipe'        => 'CR',
+                    'nominal'     => (float) $tf->nominal,
+                ];
+            }
+
+            // Transfer Keluar
+            $transfersKeluar = Transfer::where('dari_wallet_id', $wallet->id)
+                ->whereBetween('tanggal', [$startDateStr, $endDateStr])
+                ->with('keWallet')
+                ->get();
+
+            foreach ($transfersKeluar as $tf) {
+                $ke = $tf->keWallet ? strtoupper($tf->keWallet->nama) : 'REKENING LAIN';
+                $catatan = $tf->catatan ? ' ' . strtoupper($tf->catatan) : '';
+                $rawMutasi[] = [
+                    'sort_date'   => Carbon::parse($tf->tanggal)->format('Y-m-d') . ' ' . ($tf->created_at ? $tf->created_at->format('H:i:s') : '00:00:00'),
+                    'id'          => 2000000 + $tf->id,
+                    'tanggal'     => Carbon::parse($tf->tanggal)->format('d/m'),
+                    'tanggal_full'=> Carbon::parse($tf->tanggal)->format('Y-m-d'),
+                    'keterangan'  => "TRSF E-BANKING DB KE {$ke}{$catatan}",
+                    'cbg'         => '016',
+                    'tipe'        => 'DB',
+                    'nominal'     => (float) $tf->nominal,
+                ];
+
+                if ((float) $tf->biaya_admin > 0) {
+                    $rawMutasi[] = [
+                        'sort_date'   => Carbon::parse($tf->tanggal)->format('Y-m-d') . ' ' . ($tf->created_at ? $tf->created_at->format('H:i:s') : '00:00:01'),
+                        'id'          => 3000000 + $tf->id,
+                        'tanggal'     => Carbon::parse($tf->tanggal)->format('d/m'),
+                        'tanggal_full'=> Carbon::parse($tf->tanggal)->format('Y-m-d'),
+                        'keterangan'  => "BIAYA TXN TRANSFER KE {$ke}",
+                        'cbg'         => '008',
+                        'tipe'        => 'DB',
+                        'nominal'     => (float) $tf->biaya_admin,
+                    ];
+                }
+            }
+        } else {
+            // Semua dompet
+            $transactions = Transaction::where('user_id', $user->id)
+                ->whereBetween('tanggal', [$startDateStr, $endDateStr])
+                ->with(['category', 'wallet'])
+                ->get();
+
+            foreach ($transactions as $tx) {
+                $isPemasukan = $tx->tipe === 'pemasukan';
+                $catatan = trim($tx->catatan ?? '');
+                $categoryName = $tx->category?->nama ? strtoupper($tx->category->nama) : '';
+                $walletName = $tx->wallet?->nama ? '[' . strtoupper($tx->wallet->nama) . '] ' : '';
+
+                if ($isPemasukan) {
+                    $ket = $catatan ? strtoupper($catatan) : ($categoryName ?: 'SETORAN / PEMASUKAN');
+                    if (!str_contains($ket, 'TRSF') && !str_contains($ket, 'SETORAN') && !str_contains($ket, 'GAJI')) {
+                        $ket = 'SETORAN / ' . $ket;
+                    }
+                } else {
+                    $ket = $catatan ? strtoupper($catatan) : ($categoryName ?: 'PENARIKAN / PENGELUARAN');
+                    if (!str_contains($ket, 'SWITCHING') && !str_contains($ket, 'TRSF') && !str_contains($ket, 'QRIS') && !str_contains($ket, 'DEBET') && !str_contains($ket, 'BIAYA')) {
+                        $ket = 'SWITCHING DB ' . $ket;
+                    }
+                }
+
+                $rawMutasi[] = [
+                    'sort_date'   => Carbon::parse($tx->tanggal)->format('Y-m-d') . ' ' . ($tx->created_at ? $tx->created_at->format('H:i:s') : '00:00:00'),
+                    'id'          => $tx->id,
+                    'tanggal'     => Carbon::parse($tx->tanggal)->format('d/m'),
+                    'tanggal_full'=> Carbon::parse($tx->tanggal)->format('Y-m-d'),
+                    'keterangan'  => $walletName . $ket,
+                    'cbg'         => sprintf('%03d', ($tx->category_id ?? 1) % 900 + 10),
+                    'tipe'        => $isPemasukan ? 'CR' : 'DB',
+                    'nominal'     => (float) $tx->nominal,
+                ];
+            }
+
+            // Transfer biaya admin antar dompet
+            $transfers = Transfer::where('user_id', $user->id)
+                ->whereBetween('tanggal', [$startDateStr, $endDateStr])
+                ->where('biaya_admin', '>', 0)
+                ->with(['dariWallet', 'keWallet'])
+                ->get();
+
+            foreach ($transfers as $tf) {
+                $dari = $tf->dariWallet ? strtoupper($tf->dariWallet->nama) : 'DOMPET';
+                $ke = $tf->keWallet ? strtoupper($tf->keWallet->nama) : 'DOMPET';
+                $rawMutasi[] = [
+                    'sort_date'   => Carbon::parse($tf->tanggal)->format('Y-m-d') . ' ' . ($tf->created_at ? $tf->created_at->format('H:i:s') : '00:00:01'),
+                    'id'          => 3000000 + $tf->id,
+                    'tanggal'     => Carbon::parse($tf->tanggal)->format('d/m'),
+                    'tanggal_full'=> Carbon::parse($tf->tanggal)->format('Y-m-d'),
+                    'keterangan'  => "BIAYA TXN TRANSFER {$dari} KE {$ke}",
+                    'cbg'         => '008',
+                    'tipe'        => 'DB',
+                    'nominal'     => (float) $tf->biaya_admin,
+                ];
+            }
+        }
+
+        // 3. Urutkan berdasarkan tanggal & ID secara kronologis
+        usort($rawMutasi, function ($a, $b) {
+            $cmp = strcmp($a['sort_date'], $b['sort_date']);
+            if ($cmp === 0) {
+                return $a['id'] <=> $b['id'];
+            }
+            return $cmp;
+        });
+
+        // 4. Hitung Saldo Berjalan (Running Balance)
+        $currentSaldo = $saldoAwal;
+        $totalCr = 0;
+        $totalDb = 0;
+        $countCr = 0;
+        $countDb = 0;
+
+        $mutasiList = [];
+        foreach ($rawMutasi as $m) {
+            if ($m['tipe'] === 'CR') {
+                $currentSaldo += $m['nominal'];
+                $totalCr += $m['nominal'];
+                $countCr++;
+            } else {
+                $currentSaldo -= $m['nominal'];
+                $totalDb += $m['nominal'];
+                $countDb++;
+            }
+
+            $mutasiList[] = [
+                'tanggal'      => $m['tanggal'],
+                'tanggal_full' => $m['tanggal_full'],
+                'keterangan'   => $m['keterangan'],
+                'cbg'          => $m['cbg'],
+                'tipe'         => $m['tipe'],
+                'nominal'      => round($m['nominal'], 2),
+                'saldo'        => round($currentSaldo, 2),
+            ];
+        }
+
+        $saldoAkhir = round($currentSaldo, 2);
+
+        // Nomor Rekening
+        $noRekening = $wallet
+            ? ('109' . str_pad((string) ($wallet->id * 179 + 6433), 7, '0', STR_PAD_LEFT))
+            : '000-SEMUA-REKENING';
+
+        return [
+            'bank_info' => [
+                'nama_bank'     => $wallet ? strtoupper($wallet->nama) : 'SEMUA REKENING KEUANGAN',
+                'jenis_laporan' => 'REKENING TAHAPAN',
+                'cabang'        => 'KCP ' . strtoupper(strtok($user->nama, ' ')) . ' UTAMA',
+            ],
+            'nasabah' => [
+                'nama'        => strtoupper($user->nama),
+                'email'       => $user->email,
+                'no_rekening' => $noRekening,
+                'periode'     => $namaBulan,
+                'bulan'       => $month,
+                'tahun'       => $year,
+                'mata_uang'   => 'IDR',
+                'halaman'     => '1 / 1',
+            ],
+            'ringkasan' => [
+                'saldo_awal'   => round($saldoAwal, 2),
+                'total_cr'     => round($totalCr, 2),
+                'count_cr'     => $countCr,
+                'total_db'     => round($totalDb, 2),
+                'count_db'     => $countDb,
+                'saldo_akhir'  => $saldoAkhir,
+            ],
+            'mutasi' => $mutasiList,
+        ];
     }
 }

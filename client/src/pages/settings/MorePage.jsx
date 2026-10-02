@@ -6,6 +6,7 @@ import {
   Database,
   Download,
   FileSpreadsheet,
+  FileText,
   KeyRound,
   LogOut,
   Moon,
@@ -27,6 +28,7 @@ import { useTheme } from '@/context/ThemeContext'
 import { getInisial } from '@/lib/formatters'
 import { authService } from '@/services/authService'
 import { dataService } from '@/services/dataService'
+import { BankStatementModal } from './BankStatementModal'
 
 export function MorePage() {
   const { user, logout } = useAuth()
@@ -37,6 +39,7 @@ export function MorePage() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false)
+  const [isBankStatementModalOpen, setIsBankStatementModalOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   // Password Change Form State
@@ -269,6 +272,21 @@ export function MorePage() {
         <Card className="divide-y divide-surface-100 dark:divide-surface-800 p-0 overflow-hidden">
           <div className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-surface-900 dark:text-surface-100">Rekening Koran / Mutasi Bank</p>
+                <p className="text-xs text-surface-500 dark:text-surface-400">Pilih bulan & tahun, format cetak resmi Bank BCA</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" icon={FileText} onClick={() => setIsBankStatementModalOpen(true)}>
+              Rekening Koran
+            </Button>
+          </div>
+
+          <div className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center shrink-0">
                 <FileSpreadsheet className="w-5 h-5" />
               </div>
@@ -472,6 +490,13 @@ export function MorePage() {
         message="Apakah Anda yakin ingin keluar dari akun Anda?"
         confirmLabel="Ya, Keluar"
         variant="danger"
+      />
+
+      {/* Rekening Koran Modal */}
+      <BankStatementModal
+        isOpen={isBankStatementModalOpen}
+        onClose={() => setIsBankStatementModalOpen(false)}
+        user={user}
       />
     </div>
   )

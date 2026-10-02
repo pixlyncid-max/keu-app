@@ -50,4 +50,18 @@ class ReportController extends Controller
 
         return $this->success($trend, 'Laporan tren bulanan berhasil diambil');
     }
+
+    /**
+     * Rekening Koran / Mutasi Rekening gaya BCA / Perbankan resmi.
+     */
+    public function bankStatement(Request $request): JsonResponse
+    {
+        $walletId = $request->filled('wallet_id') ? (int) $request->query('wallet_id') : null;
+        $bulan    = (int) ($request->query('bulan') ?: now()->month);
+        $tahun    = (int) ($request->query('tahun') ?: now()->year);
+
+        $statement = $this->reportService->getBankStatement($request->user(), $walletId, $bulan, $tahun);
+
+        return $this->success($statement, 'Rekening koran berhasil diambil');
+    }
 }
