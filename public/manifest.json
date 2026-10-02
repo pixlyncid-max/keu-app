@@ -1,6 +1,6 @@
 {
-  "name": "Keuangan Pribadi",
-  "short_name": "Keuangan",
+  "name": "Keuangan-Ku",
+  "short_name": "Keuangan-Ku",
   "description": "Aplikasi pengelola keuangan pribadi full-stack modern, aman, dan mobile-first.",
   "start_url": "/",
   "display": "standalone",
@@ -9,9 +9,9 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "/Logo.png",
       "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

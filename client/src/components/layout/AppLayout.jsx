@@ -28,7 +28,7 @@ export function AppLayout() {
 
         return 'Lainnya & Pengaturan'
       default:
-        return 'Keuangan'
+        return 'Keuangan-Ku'
     }
   }
 

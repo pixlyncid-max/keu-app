@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { getInisial } from '../../lib/formatters'
 
-export function Header({ title = 'Keuangan' }) {
+export function Header({ title = 'Keuangan-Ku' }) {
   const { user } = useAuth()
   const { isDark, toggleTheme } = useTheme()
 
@@ -13,9 +13,11 @@ export function Header({ title = 'Keuangan' }) {
       <div className="flex items-center justify-between max-w-7xl mx-auto">
         {/* Brand & Mobile Title */}
         <div className="flex items-center gap-2.5 sm:gap-3">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-primary-600 text-white flex items-center justify-center shadow-sm shadow-primary-500/20">
-            <Wallet className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
+          <img
+            src="/Logo.png"
+            alt="Keuangan-Ku"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl object-contain shadow-sm"
+          />
           <div>
             <h1 className="text-sm sm:text-lg font-bold text-surface-900 dark:text-surface-100 leading-tight">
               {title}

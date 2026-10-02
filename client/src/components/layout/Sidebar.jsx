@@ -39,11 +39,13 @@ export function Sidebar() {
     <aside className="hidden lg:flex flex-col w-64 border-r border-surface-200/80 dark:border-surface-800 bg-white dark:bg-surface-900 h-screen sticky top-0 z-40 p-4">
       {/* Brand Header */}
       <div className="flex items-center gap-3 px-3 py-4 mb-4">
-        <div className="w-10 h-10 rounded-2xl bg-primary-600 text-white flex items-center justify-center shadow-lg shadow-primary-500/30">
-          <Wallet className="w-6 h-6" />
-        </div>
+        <img
+          src="/Logo.png"
+          alt="Keuangan-Ku"
+          className="w-10 h-10 object-contain rounded-2xl shadow-md shadow-primary-500/20"
+        />
         <div>
-          <h2 className="text-base font-bold text-surface-900 dark:text-surface-100">Keuangan App</h2>
+          <h2 className="text-base font-bold text-surface-900 dark:text-surface-100">Keuangan-Ku</h2>
           <span className="text-xs text-surface-500 dark:text-surface-400">Pengelola Keuangan</span>
         </div>
       </div>

@@ -94,12 +94,14 @@ export function RegisterPage() {
       {/* Top Navigation Bar */}
       <header className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 sm:pt-7 pb-2 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-primary-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-primary-500/25 ring-2 ring-white/20 dark:ring-white/10">
-            <Wallet className="w-5 h-5 sm:w-6 sm:h-6" />
-          </div>
+          <img
+            src="/Logo.png"
+            alt="Keuangan-Ku"
+            className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl object-contain shadow-lg shadow-primary-500/25 ring-2 ring-white/20 dark:ring-white/10"
+          />
           <div>
             <span className="font-bold text-lg sm:text-xl tracking-tight text-slate-900 dark:text-white">
-              Keuangan<span className="text-primary-600 dark:text-primary-400">Pribadi</span>
+              Keuangan<span className="text-primary-600 dark:text-primary-400">-Ku</span>
             </span>
             <span className="hidden xs:inline-block ml-2 px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase rounded-full bg-primary-100 dark:bg-primary-950/60 text-primary-700 dark:text-primary-300 border border-primary-200 dark:border-primary-800">
               Pro
@@ -389,7 +391,7 @@ export function RegisterPage() {
       {/* Footer */}
       <footer className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
         <div>
-          © {new Date().getFullYear()} Keuangan Pribadi. All rights reserved.
+          © {new Date().getFullYear()} Keuangan-Ku. All rights reserved.
         </div>
         <div className="flex items-center gap-4">
           <span className="flex items-center gap-1">
