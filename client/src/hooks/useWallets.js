@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { walletService } from '../services/walletService'
 
-export function useWallets() {
+export function useWallets(params = {}) {
   return useQuery({
-    queryKey: ['wallets'],
-    queryFn: () => walletService.getWallets(),
+    queryKey: ['wallets', params],
+    queryFn: () => walletService.getWallets(params),
   })
 }
 

@@ -1,8 +1,8 @@
 import api from './api'
 
 export const walletService = {
-  async getWallets() {
-    const res = await api.get('/wallets')
+  async getWallets(params = {}) {
+    const res = await api.get('/wallets', { params })
     const rawData = res.data?.data
     if (rawData && !Array.isArray(rawData) && Array.isArray(rawData.wallets)) {
       return {

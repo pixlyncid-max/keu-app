@@ -29,12 +29,18 @@ import {
 import { formatRupiah, getTodayString } from '@/lib/formatters'
 
 export function WalletsPage() {
-  const { data: walletsRes, isLoading } = useWallets()
-  const wallets = Array.isArray(walletsRes?.data)
+  const { data: walletsRes, isLoading } = useWallets({ termasuk_arsip: 1 })
+  const allWallets = Array.isArray(walletsRes?.data)
     ? walletsRes.data
     : Array.isArray(walletsRes?.data?.wallets)
     ? walletsRes.data.wallets
     : []
+
+  const activeWallets = allWallets.filter((w) => !w.is_archived)
+  const archivedWallets = allWallets.filter((w) => w.is_archived)
+
+  // Tab State: 'aktif' | 'arsip'
+  const [activeTab, setActiveTab] = useState('aktif')
 
   // Modal States
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false)
@@ -88,8 +94,8 @@ export function WalletsPage() {
 
   // Buka Modal Transfer
   const handleOpenTransferModal = () => {
-    setDariWalletId(wallets[0]?.id ? String(wallets[0].id) : '')
-    setKeWalletId(wallets[1]?.id ? String(wallets[1].id) : '')
+    setDariWalletId(activeWallets[0]?.id ? String(activeWallets[0].id) : '')
+    setKeWalletId(activeWallets[1]?.id ? String(activeWallets[1].id) : '')
     setJumlahTransfer('')
     setBiayaAdmin('')
     setTanggalTransfer(getTodayString())
@@ -175,7 +181,7 @@ export function WalletsPage() {
             size="sm"
             icon={ArrowRightLeft}
             onClick={handleOpenTransferModal}
-            disabled={wallets.length < 2}
+            disabled={activeWallets.length < 2}
           >
             Transfer Saldo
           </Button>
@@ -185,7 +191,55 @@ export function WalletsPage() {
         </div>
       </div>
 
-      {/* Wallet Cards Grid */}
+      {/* Tabs Filter: Dompet Aktif vs Arsip */}
+      <div className="flex items-center justify-between border-b border-surface-200 dark:border-surface-800">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('aktif')}
+            className={`pb-3 px-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'aktif'
+                ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                : 'border-transparent text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'
+            }`}
+          >
+            <span>Dompet Aktif</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                activeTab === 'aktif'
+                  ? 'bg-primary-100 dark:bg-primary-950/60 text-primary-700 dark:text-primary-300'
+                  : 'bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-400'
+              }`}
+            >
+              {activeWallets.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('arsip')}
+            className={`pb-3 px-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'arsip'
+                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                : 'border-transparent text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'
+            }`}
+          >
+            <Archive className="w-4 h-4" />
+            <span>Diarsipkan</span>
+            {archivedWallets.length > 0 && (
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                  activeTab === 'arsip'
+                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                }`}
+              >
+                {archivedWallets.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
@@ -195,70 +249,193 @@ export function WalletsPage() {
             </Card>
           ))}
         </div>
-      ) : wallets.length === 0 ? (
-        <EmptyState
-          icon={CreditCard}
-          title="Belum Ada Dompet"
-          description="Buat dompet pertama Anda untuk mulai mencatat keuangan."
-          actionLabel="Tambah Dompet"
-          onAction={handleOpenCreateWallet}
-        />
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {wallets.map((w) => (
-            <Card
-              key={w.id}
-              className={`p-5 flex flex-col justify-between border-t-4 relative overflow-hidden ${
-                w.is_archived ? 'opacity-60 bg-surface-100/50 dark:bg-surface-900/40' : ''
-              }`}
-              style={{ borderTopColor: w.warna || '#3b82f6' }}
-            >
+      ) : activeTab === 'aktif' ? (
+        /* ================= TAB 1: DOMPET AKTIF ================= */
+        activeWallets.length === 0 ? (
+          archivedWallets.length > 0 ? (
+            /* Jika semua dompet sedang diarsipkan */
+            <div className="p-8 text-center bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 space-y-4">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <Archive className="w-7 h-7" />
+              </div>
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300">
-                    {w.tipe}
+                <h3 className="text-lg font-bold text-surface-900 dark:text-surface-100">
+                  Tidak Ada Dompet Aktif
+                </h3>
+                <p className="text-sm text-surface-500 dark:text-surface-400 mt-1 max-w-md mx-auto">
+                  Anda memiliki{' '}
+                  <span className="font-bold text-amber-600 dark:text-amber-400">
+                    {archivedWallets.length} dompet yang diarsipkan
                   </span>
+                  . Anda dapat memulihkannya kembali ke status aktif atau membuat dompet baru.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                <Button
+                  variant="primary"
+                  icon={ArchiveRestore}
+                  onClick={() => setActiveTab('arsip')}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  Lihat & Pulihkan Dompet ({archivedWallets.length})
+                </Button>
+                <Button variant="outline" icon={Plus} onClick={handleOpenCreateWallet}>
+                  Tambah Dompet Baru
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* Benar-benar belum ada dompet sama sekali */
+            <EmptyState
+              icon={CreditCard}
+              title="Belum Ada Dompet"
+              description="Buat dompet pertama Anda untuk mulai mencatat keuangan."
+              actionLabel="Tambah Dompet"
+              onAction={handleOpenCreateWallet}
+            />
+          )
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {activeWallets.map((w) => (
+              <Card
+                key={w.id}
+                className="p-5 flex flex-col justify-between border-t-4 relative overflow-hidden"
+                style={{ borderTopColor: w.warna || '#3b82f6' }}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300">
+                      {w.tipe}
+                    </span>
 
-                  {/* Actions Dropdown / Buttons */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleOpenEditWallet(w)}
-                      className="p-1.5 text-surface-400 hover:text-primary-600 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                      title="Edit Dompet"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleToggleArchive(w)}
-                      className="p-1.5 text-surface-400 hover:text-amber-500 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                      title={w.is_archived ? 'Pulihkan' : 'Arsipkan'}
-                    >
-                      {w.is_archived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
-                    </button>
-                    <button
-                      onClick={() => setDeletingWalletId(w.id)}
-                      className="p-1.5 text-surface-400 hover:text-danger-500 rounded-lg hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors"
-                      title="Hapus"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {/* Actions Dropdown / Buttons */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleOpenEditWallet(w)}
+                        className="p-1.5 text-surface-400 hover:text-primary-600 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                        title="Edit Dompet"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleToggleArchive(w)}
+                        className="p-1.5 text-surface-400 hover:text-amber-500 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                        title="Arsipkan Dompet"
+                      >
+                        <Archive className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeletingWalletId(w.id)}
+                        className="p-1.5 text-surface-400 hover:text-danger-500 rounded-lg hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors"
+                        title="Hapus Dompet"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
+
+                  <h3 className="text-base font-bold text-surface-900 dark:text-surface-100 flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-surface-400" />
+                    <span>{w.nama}</span>
+                  </h3>
                 </div>
 
-                <h3 className="text-base font-bold text-surface-900 dark:text-surface-100 flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-surface-400" />
-                  <span>{w.nama}</span>
-                </h3>
-              </div>
+                <div className="mt-4 pt-3 border-t border-surface-100 dark:border-surface-800">
+                  <p className="text-[11px] text-surface-400">Saldo Saat Ini</p>
+                  <h4 className="text-xl font-extrabold text-surface-900 dark:text-surface-100">
+                    {formatRupiah(w.saldo_aktual ?? w.saldo_awal)}
+                  </h4>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )
+      ) : (
+        /* ================= TAB 2: DOMPET DIARSIPKAN ================= */
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 flex items-start gap-3">
+            <Archive className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+              <p className="font-bold text-sm mb-0.5">Daftar Dompet yang Diarsipkan</p>
+              Dompet yang diarsipkan disembunyikan dari transaksi baru dan transfer, namun seluruh
+              saldo dan data riwayat transaksinya tetap tersimpan dengan aman. Anda dapat
+              mengembalikannya ke status aktif kapan saja dengan menekan tombol{' '}
+              <strong>Pulihkan</strong>.
+            </div>
+          </div>
 
-              <div className="mt-4 pt-3 border-t border-surface-100 dark:border-surface-800">
-                <p className="text-[11px] text-surface-400">Saldo Saat Ini</p>
-                <h4 className="text-xl font-extrabold text-surface-900 dark:text-surface-100">
-                  {formatRupiah(w.saldo_aktual ?? w.saldo_awal)}
-                </h4>
-              </div>
-            </Card>
-          ))}
+          {archivedWallets.length === 0 ? (
+            <EmptyState
+              icon={ArchiveRestore}
+              title="Tidak Ada Dompet yang Diarsipkan"
+              description="Saat ini tidak ada dompet dalam arsip. Dompet yang Anda arsipkan akan muncul di sini."
+              actionLabel="Kembali ke Dompet Aktif"
+              onAction={() => setActiveTab('aktif')}
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {archivedWallets.map((w) => (
+                <Card
+                  key={w.id}
+                  className="p-5 flex flex-col justify-between border-t-4 border-amber-500 bg-amber-50/20 dark:bg-amber-950/10 relative overflow-hidden"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                          <Archive className="w-3 h-3" />
+                          Diarsipkan
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-surface-100 dark:bg-surface-800 text-surface-600 dark:text-surface-300">
+                          {w.tipe}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleToggleArchive(w)}
+                          className="p-1.5 text-amber-600 hover:text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/60 rounded-lg transition-colors"
+                          title="Pulihkan ke Dompet Aktif"
+                        >
+                          <ArchiveRestore className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeletingWalletId(w.id)}
+                          className="p-1.5 text-surface-400 hover:text-danger-500 rounded-lg hover:bg-danger-50 dark:hover:bg-danger-950/40 transition-colors"
+                          title="Hapus Permanen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <h3 className="text-base font-bold text-surface-900 dark:text-surface-100 flex items-center gap-2">
+                      <Wallet className="w-4 h-4 text-amber-500" />
+                      <span>{w.nama}</span>
+                    </h3>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-surface-100 dark:border-surface-800">
+                    <p className="text-[11px] text-surface-400">Saldo Terakhir</p>
+                    <h4 className="text-xl font-extrabold text-surface-900 dark:text-surface-100">
+                      {formatRupiah(w.saldo_aktual ?? w.saldo_awal)}
+                    </h4>
+
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={ArchiveRestore}
+                      className="w-full mt-3 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                      onClick={() => handleToggleArchive(w)}
+                      loading={archiveWalletMutation.isPending}
+                    >
+                      Pulihkan Dompet Ini
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -342,7 +519,7 @@ export function WalletsPage() {
             onChange={(e) => setDariWalletId(e.target.value)}
             required
           >
-            {wallets.map((w) => (
+            {activeWallets.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.nama} (Saldo: {formatRupiah(w.saldo_aktual ?? w.saldo_awal)})
               </option>
@@ -355,7 +532,7 @@ export function WalletsPage() {
             onChange={(e) => setKeWalletId(e.target.value)}
             required
           >
-            {wallets
+            {activeWallets
               .filter((w) => String(w.id) !== dariWalletId)
               .map((w) => (
                 <option key={w.id} value={w.id}>
