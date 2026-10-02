@@ -1,17 +1,14 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
-  Calendar,
   ChevronDown,
-  Download,
   FileText,
   Loader2,
   Printer,
-  Wallet as WalletIcon,
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/Button'
-import { formatRupiah } from '@/lib/formatters'
 import { reportService } from '@/services/reportService'
 import { walletService } from '@/services/walletService'
 
@@ -38,6 +35,223 @@ function formatBankNumber(num) {
   })
 }
 
+/**
+ * Komponen dokumen rekening koran sesuai format resmi Bank BCA (Rekening Tahapan).
+ * Digunakan baik untuk tampilan preview di modal maupun saat dicetak/diekspor ke PDF.
+ */
+function StatementDocument({ statement, user, selectedMonth }) {
+  if (!statement) return null
+
+  const bankName = statement?.bank_info?.nama_bank || 'BCA'
+
+  return (
+    <div className="w-full bg-white text-black p-4 sm:p-6 font-sans leading-tight text-xs sm:text-sm">
+      {/* Header Bank & Document Title */}
+      <div className="flex items-start justify-between pb-3">
+        {/* Left: Bank Logo & Branch */}
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2 mb-1">
+            {/* BCA Official Emblem & Text */}
+            <div className="flex items-center gap-1.5">
+              <div className="w-8 h-8 rounded-full bg-[#005EAA] flex items-center justify-center text-white font-black text-sm shadow-sm shrink-0">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                  <circle cx="12" cy="12" r="10" fill="#005EAA" />
+                  <path d="M7 8h4.5a3 3 0 0 1 0 4.5A3 3 0 0 1 7 17H7V8zm2.5 3h2a1.5 1.5 0 0 0 0-3h-2v3zm0 4.5h2a1.5 1.5 0 0 0 0-3h-2v3z" fill="#ffffff" />
+                  <path d="M15 8h2v9h-2z" fill="#ffffff" />
+                </svg>
+              </div>
+              <span className="text-2xl font-black text-[#005EAA] tracking-tight">
+                {bankName.toUpperCase().includes('BCA') ? 'BCA' : bankName.toUpperCase()}
+              </span>
+            </div>
+          </div>
+          <span className="text-[10px] font-semibold text-gray-700 tracking-wider">
+            {statement.bank_info?.cabang || 'KCP UTAMA'}
+          </span>
+        </div>
+
+        {/* Right: Document Type */}
+        <div className="text-right">
+          <h1 className="text-xl sm:text-2xl font-black tracking-wider text-gray-900 uppercase">
+            REKENING TAHAPAN
+          </h1>
+        </div>
+      </div>
+
+      {/* Top 2 Side-by-Side Framed Boxes */}
+      <div className="grid grid-cols-2 gap-3 my-2">
+        {/* Left Box: Nasabah / Customer */}
+        <div className="border border-black rounded-lg p-3 text-[11px] leading-relaxed font-mono">
+          <p className="font-bold text-black text-xs uppercase">{statement.nasabah?.nama}</p>
+          <p className="text-gray-800">{user?.email || 'NASABAH TERDAFTAR'}</p>
+          <p className="text-gray-800">CIKAMPEK RT 005 RW 003</p>
+          <p className="text-gray-800">PERUM GIYA</p>
+          <p className="text-gray-800">KARAWANG 41311</p>
+          <p className="text-gray-800 font-bold">INDONESIA</p>
+        </div>
+
+        {/* Right Box: Account & Period Meta */}
+        <div className="border border-black rounded-lg p-3 text-[11px] leading-relaxed font-mono flex flex-col justify-center">
+          <div className="grid grid-cols-12 gap-1 py-0.5">
+            <span className="col-span-5 font-bold text-gray-800">NO. REKENING</span>
+            <span className="col-span-1 text-center font-bold">:</span>
+            <span className="col-span-6 font-bold text-black tracking-wider">
+              {statement.nasabah?.no_rekening}
+            </span>
+          </div>
+          <div className="grid grid-cols-12 gap-1 py-0.5">
+            <span className="col-span-5 font-bold text-gray-800">HALAMAN</span>
+            <span className="col-span-1 text-center font-bold">:</span>
+            <span className="col-span-6 font-bold text-black">
+              {statement.nasabah?.halaman || '1 / 1'}
+            </span>
+          </div>
+          <div className="grid grid-cols-12 gap-1 py-0.5">
+            <span className="col-span-5 font-bold text-gray-800">PERIODE</span>
+            <span className="col-span-1 text-center font-bold">:</span>
+            <span className="col-span-6 font-bold text-black">
+              {statement.nasabah?.periode}
+            </span>
+          </div>
+          <div className="grid grid-cols-12 gap-1 py-0.5">
+            <span className="col-span-5 font-bold text-gray-800">MATA UANG</span>
+            <span className="col-span-1 text-center font-bold">:</span>
+            <span className="col-span-6 font-bold text-black">
+              {statement.nasabah?.mata_uang || 'IDR'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Catatan Box */}
+      <div className="border border-black rounded-lg p-2.5 my-2 text-[9px] sm:text-[10px] leading-tight text-gray-800 bg-gray-50/50">
+        <p className="font-bold text-black mb-1">CATATAN:</p>
+        <div className="grid grid-cols-2 gap-3">
+          <p className="flex items-start gap-1">
+            <span>•</span>
+            <span>
+              Apabila nasabah tidak melakukan sanggahan atas Laporan Mutasi Rekening ini
+              sampai dengan akhir bulan berikutnya, nasabah dianggap telah menyetujui
+              segala data yang tercantum pada Laporan Mutasi Rekening ini.
+            </span>
+          </p>
+          <p className="flex items-start gap-1">
+            <span>•</span>
+            <span>
+              BCA berhak setiap saat melakukan koreksi apabila ada kesalahan pada Laporan
+              Mutasi Rekening.
+            </span>
+          </p>
+        </div>
+      </div>
+
+      {/* Main Mutation Table */}
+      <div className="w-full my-3">
+        <table className="w-full border-collapse font-mono text-[10px] sm:text-xs">
+          <thead>
+            <tr className="border-t-2 border-b-2 border-black font-bold text-black">
+              <th className="py-1.5 px-2 text-left w-16">TANGGAL</th>
+              <th className="py-1.5 px-2 text-left">KETERANGAN</th>
+              <th className="py-1.5 px-2 text-center w-12">CBG</th>
+              <th className="py-1.5 px-2 text-right w-28 sm:w-36">MUTASI</th>
+              <th className="py-1.5 px-2 text-right w-28 sm:w-36">SALDO</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {/* Saldo Awal Row */}
+            <tr className="font-semibold text-black">
+              <td className="py-1 px-2 whitespace-nowrap">
+                {String(selectedMonth).padStart(2, '0')}/01
+              </td>
+              <td className="py-1 px-2 font-bold tracking-wider">SALDO AWAL</td>
+              <td className="py-1 px-2 text-center"></td>
+              <td className="py-1 px-2 text-right"></td>
+              <td className="py-1 px-2 text-right font-bold text-black">
+                {formatBankNumber(statement.ringkasan?.saldo_awal)}
+              </td>
+            </tr>
+
+            {/* Transaction Rows */}
+            {statement.mutasi && statement.mutasi.length > 0 ? (
+              statement.mutasi.map((row, idx) => (
+                <tr key={idx} className="hover:bg-gray-50/50">
+                  <td className="py-1 px-2 align-top whitespace-nowrap text-black">
+                    {row.tanggal}
+                  </td>
+                  <td className="py-1 px-2 align-top uppercase text-black pr-3 break-words font-medium">
+                    {row.keterangan}
+                  </td>
+                  <td className="py-1 px-2 align-top text-center text-gray-700">
+                    {row.cbg}
+                  </td>
+                  <td className="py-1 px-2 align-top text-right whitespace-nowrap text-black font-semibold">
+                    {formatBankNumber(row.nominal)}{' '}
+                    <span className="text-black font-bold">
+                      {row.tipe}
+                    </span>
+                  </td>
+                  <td className="py-1 px-2 align-top text-right whitespace-nowrap text-black font-bold">
+                    {formatBankNumber(row.saldo)}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} className="py-6 text-center text-gray-500 italic">
+                  --- TIDAK ADA TRANSAKSI PADA PERIODE INI ---
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Summary Table at Bottom */}
+      <div className="mt-4 pt-3 border-t-2 border-black font-mono text-[10px] sm:text-xs">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <div className="flex justify-between py-0.5 border-b border-gray-200">
+              <span className="text-gray-700 font-bold">SALDO AWAL :</span>
+              <span className="font-bold text-black">
+                Rp {formatBankNumber(statement.ringkasan?.saldo_awal)}
+              </span>
+            </div>
+            <div className="flex justify-between py-0.5 border-b border-gray-200">
+              <span className="text-gray-700 font-bold">
+                TOTAL MUTASI KREDIT (CR) [{statement.ringkasan?.count_cr || 0}] :
+              </span>
+              <span className="font-bold text-black">
+                Rp {formatBankNumber(statement.ringkasan?.total_cr)}
+              </span>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between py-0.5 border-b border-gray-200">
+              <span className="text-gray-700 font-bold">
+                TOTAL MUTASI DEBET (DB) [{statement.ringkasan?.count_db || 0}] :
+              </span>
+              <span className="font-bold text-black">
+                Rp {formatBankNumber(statement.ringkasan?.total_db)}
+              </span>
+            </div>
+            <div className="flex justify-between py-0.5 border-b-2 border-black bg-gray-50 px-1 rounded">
+              <span className="text-black font-black">SALDO AKHIR :</span>
+              <span className="font-black text-black text-xs sm:text-sm">
+                Rp {formatBankNumber(statement.ringkasan?.saldo_akhir)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Official statement notice */}
+        <div className="mt-4 text-center text-[9px] text-gray-500 italic">
+          Bersambung ke Halaman berikut
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function BankStatementModal({ isOpen, onClose, user }) {
   const currentDate = new Date()
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1)
@@ -46,7 +260,6 @@ export function BankStatementModal({ isOpen, onClose, user }) {
   const [wallets, setWallets] = useState([])
   const [statement, setStatement] = useState(null)
   const [loading, setLoading] = useState(false)
-  const printAreaRef = useRef(null)
 
   // Generate Year range (last 4 years to next year)
   const currentYear = currentDate.getFullYear()
@@ -113,9 +326,6 @@ export function BankStatementModal({ isOpen, onClose, user }) {
 
   if (!isOpen) return null
 
-  const bankName = statement?.bank_info?.nama_bank || 'BCA'
-  const isBca = bankName.toUpperCase().includes('BCA') || !selectedWalletId
-
   return (
     <>
       {/* Global Print Stylesheet */}
@@ -123,20 +333,27 @@ export function BankStatementModal({ isOpen, onClose, user }) {
         @media print {
           @page {
             size: A4 portrait;
-            margin: 8mm;
+            margin: 8mm 8mm 8mm 8mm;
           }
-          body * {
-            visibility: hidden !important;
+          html, body {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            overflow: visible !important;
           }
-          #rekening-koran-print-area,
-          #rekening-koran-print-area * {
-            visibility: visible !important;
+          /* Sembunyikan seluruh tampilan aplikasi dan modal */
+          #root,
+          .no-print {
+            display: none !important;
           }
-          #rekening-koran-print-area {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
+          /* Tampilkan hanya dokumen print portal */
+          #rekening-koran-portal-print {
+            display: block !important;
+            position: static !important;
             width: 100% !important;
+            max-width: 100% !important;
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
@@ -144,17 +361,34 @@ export function BankStatementModal({ isOpen, onClose, user }) {
             box-shadow: none !important;
             border: none !important;
           }
-          .no-print {
+        }
+        @media screen {
+          #rekening-koran-portal-print {
             display: none !important;
           }
         }
       `}</style>
 
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-surface-950/70 backdrop-blur-sm animate-fade-in">
+      {/* Portal cetak langsung ke document.body (bebas dari pembungkus fixed / modal / overflow) */}
+      {typeof document !== 'undefined' &&
+        statement &&
+        createPortal(
+          <div id="rekening-koran-portal-print">
+            <StatementDocument
+              statement={statement}
+              user={user}
+              selectedMonth={selectedMonth}
+            />
+          </div>,
+          document.body
+        )}
+
+      {/* Modal Dialog untuk Preview di Layar */}
+      <div className="no-print fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-surface-950/70 backdrop-blur-sm animate-fade-in">
         <div className="relative w-full max-w-4xl bg-white dark:bg-surface-900 rounded-2xl shadow-2xl z-10 flex flex-col max-h-[95vh] border border-surface-200 dark:border-surface-800 overflow-hidden">
           
-          {/* Header Controls (No-Print) */}
-          <div className="no-print p-4 sm:p-5 border-b border-surface-200 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-900/50 flex flex-col gap-4">
+          {/* Header Controls */}
+          <div className="p-4 sm:p-5 border-b border-surface-200 dark:border-surface-800 bg-surface-50/50 dark:bg-surface-900/50 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
@@ -259,7 +493,7 @@ export function BankStatementModal({ isOpen, onClose, user }) {
             </div>
           </div>
 
-          {/* Statement View Body (Scrollable in modal, visible during print) */}
+          {/* Statement View Body (Scrollable in modal preview) */}
           <div className="p-3 sm:p-6 overflow-y-auto custom-scrollbar flex-1 bg-surface-100 dark:bg-surface-950 flex justify-center">
             {loading ? (
               <div className="py-20 flex flex-col items-center justify-center gap-3 text-surface-500">
@@ -267,231 +501,18 @@ export function BankStatementModal({ isOpen, onClose, user }) {
                 <p className="text-sm font-medium">Menyusun rekening koran resmi...</p>
               </div>
             ) : statement ? (
-              <div
-                id="rekening-koran-print-area"
-                ref={printAreaRef}
-                className="w-full max-w-3xl bg-white text-black p-5 sm:p-8 rounded-xl shadow-md border border-gray-200 font-sans leading-tight text-xs sm:text-sm transition-all"
-                style={{ minHeight: '800px', color: '#111827' }}
-              >
-                {/* Header Bank & Document Title */}
-                <div className="flex items-start justify-between pb-4">
-                  {/* Left: Bank Logo & Branch */}
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-2 mb-1">
-                      {/* Stylized BCA Logo Emblem */}
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-8 h-8 rounded-full bg-[#005EAA] flex items-center justify-center text-white font-black text-sm shadow-sm">
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                            className="w-5 h-5"
-                          >
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.5h-2v-2h2v2zm0-4h-2V7h2v5.5z" opacity="0" />
-                            <circle cx="12" cy="12" r="9" fill="#005EAA" />
-                            <path d="M7 8h4.5a3 3 0 0 1 0 4.5A3 3 0 0 1 7 17H7V8zm2.5 3h2a1.5 1.5 0 0 0 0-3h-2v3zm0 4.5h2a1.5 1.5 0 0 0 0-3h-2v3z" fill="#ffffff" />
-                            <path d="M15 8h2v9h-2z" fill="#ffffff" />
-                          </svg>
-                        </div>
-                        <span className="text-2xl font-black text-[#005EAA] tracking-tight">
-                          {bankName.toUpperCase().includes('BCA') ? 'BCA' : bankName.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-semibold text-gray-700 tracking-wider">
-                      {statement.bank_info?.cabang || 'KCP UTAMA'}
-                    </span>
-                  </div>
-
-                  {/* Right: Document Type */}
-                  <div className="text-right">
-                    <h1 className="text-xl sm:text-2xl font-extrabold tracking-wider text-gray-900 uppercase">
-                      REKENING TAHAPAN
-                    </h1>
-                  </div>
-                </div>
-
-                {/* Top 2 Side-by-Side Framed Boxes */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 my-2">
-                  {/* Left Box: Nasabah / Customer */}
-                  <div className="border border-gray-900 rounded-lg p-3 text-[11px] sm:text-xs leading-relaxed font-mono">
-                    <p className="font-bold text-gray-900 text-sm">{statement.nasabah?.nama}</p>
-                    <p className="text-gray-800">{user?.email || 'NASABAH TERDAFTAR'}</p>
-                    <p className="text-gray-800">CIKAMPEK RT 005 RW 003</p>
-                    <p className="text-gray-800">PERUM GIYA</p>
-                    <p className="text-gray-800">KARAWANG 41311</p>
-                    <p className="text-gray-800 font-semibold">INDONESIA</p>
-                  </div>
-
-                  {/* Right Box: Account & Period Meta */}
-                  <div className="border border-gray-900 rounded-lg p-3 text-[11px] sm:text-xs leading-relaxed font-mono flex flex-col justify-center">
-                    <div className="grid grid-cols-12 gap-1 py-0.5">
-                      <span className="col-span-5 font-bold text-gray-800">NO. REKENING</span>
-                      <span className="col-span-1 text-center font-bold">:</span>
-                      <span className="col-span-6 font-bold text-gray-900 tracking-wider">
-                        {statement.nasabah?.no_rekening}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-12 gap-1 py-0.5">
-                      <span className="col-span-5 font-bold text-gray-800">HALAMAN</span>
-                      <span className="col-span-1 text-center font-bold">:</span>
-                      <span className="col-span-6 font-bold text-gray-900">
-                        {statement.nasabah?.halaman || '1 / 1'}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-12 gap-1 py-0.5">
-                      <span className="col-span-5 font-bold text-gray-800">PERIODE</span>
-                      <span className="col-span-1 text-center font-bold">:</span>
-                      <span className="col-span-6 font-bold text-gray-900">
-                        {statement.nasabah?.periode}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-12 gap-1 py-0.5">
-                      <span className="col-span-5 font-bold text-gray-800">MATA UANG</span>
-                      <span className="col-span-1 text-center font-bold">:</span>
-                      <span className="col-span-6 font-bold text-gray-900">
-                        {statement.nasabah?.mata_uang || 'IDR'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Catatan Box */}
-                <div className="border border-gray-900 rounded-lg p-2.5 my-2.5 text-[9px] sm:text-[10px] leading-tight text-gray-700 bg-gray-50/50">
-                  <p className="font-bold text-gray-900 mb-1">CATATAN:</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <p className="flex items-start gap-1">
-                      <span>•</span>
-                      <span>
-                        Apabila nasabah tidak melakukan sanggahan atas Laporan Mutasi Rekening ini
-                        sampai dengan akhir bulan berikutnya, nasabah dianggap telah menyetujui
-                        segala data yang tercantum pada Laporan Mutasi Rekening ini.
-                      </span>
-                    </p>
-                    <p className="flex items-start gap-1">
-                      <span>•</span>
-                      <span>
-                        Bank berhak setiap saat melakukan koreksi apabila ada kesalahan pada Laporan
-                        Mutasi Rekening.
-                      </span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Main Mutation Table */}
-                <div className="overflow-x-auto my-3">
-                  <table className="w-full border-collapse font-mono text-[10px] sm:text-xs">
-                    <thead>
-                      <tr className="border-t-2 border-b-2 border-gray-900 font-bold text-gray-900">
-                        <th className="py-1.5 px-2 text-left w-16 sm:w-20">TANGGAL</th>
-                        <th className="py-1.5 px-2 text-left">KETERANGAN</th>
-                        <th className="py-1.5 px-2 text-center w-12 sm:w-16">CBG</th>
-                        <th className="py-1.5 px-2 text-right w-28 sm:w-36">MUTASI</th>
-                        <th className="py-1.5 px-2 text-right w-28 sm:w-36">SALDO</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {/* Saldo Awal Row */}
-                      <tr className="font-semibold text-gray-900">
-                        <td className="py-1 px-2 whitespace-nowrap">
-                          {String(selectedMonth).padStart(2, '0')}/01
-                        </td>
-                        <td className="py-1 px-2 font-bold tracking-wider">SALDO AWAL</td>
-                        <td className="py-1 px-2 text-center"></td>
-                        <td className="py-1 px-2 text-right"></td>
-                        <td className="py-1 px-2 text-right font-bold text-gray-950">
-                          {formatBankNumber(statement.ringkasan?.saldo_awal)}
-                        </td>
-                      </tr>
-
-                      {/* Transaction Rows */}
-                      {statement.mutasi && statement.mutasi.length > 0 ? (
-                        statement.mutasi.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50/50">
-                            <td className="py-1 px-2 align-top whitespace-nowrap text-gray-900">
-                              {row.tanggal}
-                            </td>
-                            <td className="py-1 px-2 align-top uppercase text-gray-900 pr-3 break-words font-medium">
-                              {row.keterangan}
-                            </td>
-                            <td className="py-1 px-2 align-top text-center text-gray-700">
-                              {row.cbg}
-                            </td>
-                            <td className="py-1 px-2 align-top text-right whitespace-nowrap text-gray-900 font-semibold">
-                              {formatBankNumber(row.nominal)}{' '}
-                              <span
-                                className={
-                                  row.tipe === 'CR'
-                                    ? 'text-emerald-700 font-bold'
-                                    : 'text-gray-900 font-bold'
-                                }
-                              >
-                                {row.tipe}
-                              </span>
-                            </td>
-                            <td className="py-1 px-2 align-top text-right whitespace-nowrap text-gray-950 font-bold">
-                              {formatBankNumber(row.saldo)}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={5} className="py-6 text-center text-gray-500 italic">
-                            --- TIDAK ADA TRANSAKSI PADA PERIODE INI ---
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Summary Table at Bottom */}
-                <div className="mt-4 pt-3 border-t-2 border-gray-900 font-mono text-[10px] sm:text-xs">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <div className="flex justify-between py-0.5 border-b border-gray-200">
-                        <span className="text-gray-700 font-bold">SALDO AWAL :</span>
-                        <span className="font-bold text-gray-900">
-                          Rp {formatBankNumber(statement.ringkasan?.saldo_awal)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between py-0.5 border-b border-gray-200">
-                        <span className="text-gray-700 font-bold">
-                          TOTAL MUTASI KREDIT (CR) [{statement.ringkasan?.count_cr || 0}] :
-                        </span>
-                        <span className="font-bold text-emerald-700">
-                          Rp {formatBankNumber(statement.ringkasan?.total_cr)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between py-0.5 border-b border-gray-200">
-                        <span className="text-gray-700 font-bold">
-                          TOTAL MUTASI DEBET (DB) [{statement.ringkasan?.count_db || 0}] :
-                        </span>
-                        <span className="font-bold text-rose-700">
-                          Rp {formatBankNumber(statement.ringkasan?.total_db)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between py-0.5 border-b-2 border-gray-900 bg-gray-50 px-1 rounded">
-                        <span className="text-gray-900 font-black">SALDO AKHIR :</span>
-                        <span className="font-black text-gray-950 text-xs sm:text-sm">
-                          Rp {formatBankNumber(statement.ringkasan?.saldo_akhir)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Official statement notice */}
-                  <div className="mt-4 text-center text-[9px] text-gray-500 italic">
-                    Bersambung ke Halaman berikut
-                  </div>
-                </div>
+              <div className="w-full max-w-3xl bg-white text-black p-4 sm:p-6 rounded-xl shadow-md border border-gray-200 overflow-x-auto">
+                <StatementDocument
+                  statement={statement}
+                  user={user}
+                  selectedMonth={selectedMonth}
+                />
               </div>
             ) : null}
           </div>
 
-          {/* Modal Footer (No-Print) */}
-          <div className="no-print p-3 sm:p-4 border-t border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 flex items-center justify-between">
+          {/* Modal Footer */}
+          <div className="p-3 sm:p-4 border-t border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 flex items-center justify-between">
             <p className="text-xs text-surface-500 dark:text-surface-400 hidden sm:block">
               Tip: Tekan Cetak / PDF untuk mencetak langsung ke printer atau simpan sebagai dokumen PDF resmi.
             </p>
