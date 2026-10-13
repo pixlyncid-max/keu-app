@@ -4,14 +4,32 @@ import {
   ArrowDownRight,
   ArrowLeftRight,
   ArrowUpRight,
+  BarChart3,
+  Briefcase,
   Calendar,
+  Car,
+  Coffee,
   CreditCard,
+  FileText,
+  Gift,
+  GraduationCap,
+  HeartPulse,
+  Home,
+  Laptop,
+  Layers,
+  ListFilter,
   PiggyBank,
   PieChart as PieIcon,
   Plus,
   Repeat,
+  ShoppingBag,
   Tag,
+  TrendingUp,
+  Tv,
+  Utensils,
   Wallet,
+  Wifi,
+  Zap,
 } from 'lucide-react'
 import {
   Bar,
@@ -31,12 +49,36 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useAuth } from '@/context/AuthContext'
 import { useCategoriesReport, useMonthlyTrend, useReportSummary } from '@/hooks/useReports'
-import { useTransactions } from '@/hooks/useTransactions'
 import { formatRupiah, formatTanggalPendek, getBulanIniString } from '@/lib/formatters'
+
+const CATEGORY_ICON_MAP = {
+  utensils: Utensils,
+  car: Car,
+  'file-text': FileText,
+  'shopping-bag': ShoppingBag,
+  tv: Tv,
+  'heart-pulse': HeartPulse,
+  'graduation-cap': GraduationCap,
+  'piggy-bank': PiggyBank,
+  briefcase: Briefcase,
+  gift: Gift,
+  laptop: Laptop,
+  'trending-up': TrendingUp,
+  coffee: Coffee,
+  home: Home,
+  wifi: Wifi,
+  zap: Zap,
+}
+
+function getCategoryIcon(iconName, className = 'w-4 h-4') {
+  const IconComp = CATEGORY_ICON_MAP[iconName] || Tag
+  return <IconComp className={className} />
+}
 
 export function DashboardPage() {
   const { user } = useAuth()
   const [periode, setPeriode] = useState('bulan_ini')
+  const [categoryViewMode, setCategoryViewMode] = useState('list') // 'list' | 'chart'
 
   // Parameter tanggal berdasarkan filter periode
   const getPeriodParams = () => {
@@ -76,14 +118,19 @@ export function DashboardPage() {
   const { data: summaryRes, isLoading: loadingSummary } = useReportSummary(periodParams)
   const { data: catReportRes, isLoading: loadingCatReport } = useCategoriesReport(periodParams)
   const { data: trendRes, isLoading: loadingTrend } = useMonthlyTrend(6)
-  const { data: recentTransRes, isLoading: loadingTrans } = useTransactions({ per_page: 5 })
 
   const summary = summaryRes?.data
   const catReport = Array.isArray(catReportRes?.data?.data) ? catReportRes.data.data : []
   const trendData = Array.isArray(trendRes?.data) ? trendRes.data : []
-  const recentTransactions = Array.isArray(recentTransRes?.data) ? recentTransRes.data : []
 
-  // Palet warna untuk Donut Chart
+  // Perhitungan statistik pengeluaran per kategori
+  const grandTotalExpenses =
+    catReportRes?.data?.grand_total ??
+    catReport.reduce((acc, c) => acc + (Number(c.total) || 0), 0)
+  const topCategory = catReport.length > 0 ? catReport[0] : null
+  const avgExpensePerCat = catReport.length > 0 ? grandTotalExpenses / catReport.length : 0
+
+  // Palet warna untuk Donut Chart & Bar Chart
   const CHART_COLORS = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#8B5CF6', '#14B8A6', '#F97316']
 
   return (
@@ -394,64 +441,256 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      {/* 5 Transaksi Terakhir Section */}
-      <Card className="p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-surface-900 dark:text-surface-100">
-            Transaksi Terakhir
-          </h3>
-          <Link
-            to="/transactions"
-            className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline"
-          >
-            Lihat Semua →
-          </Link>
+      {/* Statistik & Total Pengeluaran per Kategori Section */}
+      <Card className="p-4 sm:p-6 space-y-5">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-surface-100 dark:border-surface-800">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <h3 className="text-base sm:text-lg font-bold text-surface-900 dark:text-surface-100">
+                Total Pengeluaran per Kategori
+              </h3>
+              {catReport.length > 0 && (
+                <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-primary-100 text-primary-700 dark:bg-primary-950/60 dark:text-primary-300">
+                  {catReport.length} Kategori
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-surface-500 dark:text-surface-400">
+              Statistik dan perbandingan total pengeluaran masing-masing kategori periode ini
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {/* Toggle View Mode: List vs Bar Chart */}
+            <div className="flex items-center p-1 rounded-xl bg-surface-100 dark:bg-surface-800 border border-surface-200/60 dark:border-surface-700/60">
+              <button
+                type="button"
+                onClick={() => setCategoryViewMode('list')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                  categoryViewMode === 'list'
+                    ? 'bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 shadow-2xs font-semibold'
+                    : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'
+                }`}
+              >
+                <ListFilter className="w-3.5 h-3.5" />
+                <span>Rincian</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCategoryViewMode('chart')}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                  categoryViewMode === 'chart'
+                    ? 'bg-white dark:bg-surface-900 text-surface-900 dark:text-surface-100 shadow-2xs font-semibold'
+                    : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-300'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                <span>Grafik</span>
+              </button>
+            </div>
+
+            <Link
+              to="/categories"
+              className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline shrink-0 ml-1"
+            >
+              Kelola →
+            </Link>
+          </div>
         </div>
 
-        {loadingTrans ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
+        {loadingCatReport ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-xl" />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-20 w-full rounded-xl" />
+              ))}
+            </div>
           </div>
-        ) : recentTransactions.length === 0 ? (
+        ) : catReport.length === 0 ? (
           <EmptyState
-            title="Belum Ada Transaksi"
-            description="Mulai mencatat transaksi pertama Anda sekarang."
+            icon={Tag}
+            title="Belum Ada Pengeluaran"
+            description="Tidak ada transaksi pengeluaran tercatat pada periode yang dipilih."
           />
         ) : (
-          <div className="divide-y divide-surface-100 dark:divide-surface-800">
-            {recentTransactions.map((t) => (
-              <div key={t.id} className="py-3 flex items-center justify-between first:pt-0 last:pb-0">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      t.tipe === 'pemasukan'
-                        ? 'bg-success-50 text-success-600 dark:bg-success-950/40'
-                        : 'bg-danger-50 text-danger-500 dark:bg-danger-950/40'
-                    }`}
-                  >
-                    {t.tipe === 'pemasukan' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-surface-900 dark:text-surface-100">
-                      {t.catatan || t.category?.nama || 'Transaksi'}
-                    </p>
-                    <p className="text-xs text-surface-400">
-                      {t.wallet?.nama ?? 'Dompet'} • {formatTanggalPendek(t.tanggal)}
-                    </p>
-                  </div>
+          <div className="space-y-5">
+            {/* Summary Highlights */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Total Pengeluaran */}
+              <div className="p-3.5 rounded-xl bg-danger-50/60 dark:bg-danger-950/30 border border-danger-200/60 dark:border-danger-900/40">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-danger-600 dark:text-danger-400">
+                    Total Pengeluaran
+                  </span>
+                  <Tag className="w-4 h-4 text-danger-500" />
                 </div>
-
-                <span
-                  className={`text-sm font-bold ${
-                    t.tipe === 'pemasukan' ? 'text-success-600 dark:text-success-400' : 'text-danger-500 dark:text-danger-400'
-                  }`}
-                >
-                  {t.tipe === 'pemasukan' ? '+' : '-'} {formatRupiah(t.jumlah ?? t.nominal ?? 0)}
-                </span>
+                <p className="text-base sm:text-lg font-bold text-danger-600 dark:text-danger-400 mt-1 truncate">
+                  {formatRupiah(grandTotalExpenses)}
+                </p>
+                <p className="text-[10px] text-surface-400 mt-0.5">Seluruh kategori periode ini</p>
               </div>
-            ))}
+
+              {/* Kategori Terbesar */}
+              <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                    Pengeluaran Terbesar
+                  </span>
+                  <TrendingUp className="w-4 h-4 text-amber-500" />
+                </div>
+                <p className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400 mt-1 truncate">
+                  {topCategory?.nama ?? '-'}
+                </p>
+                <p className="text-[10px] text-surface-400 mt-0.5 truncate">
+                  {topCategory ? `${formatRupiah(topCategory.total)} (${topCategory.persentase}%)` : '-'}
+                </p>
+              </div>
+
+              {/* Rata-rata per Kategori */}
+              <div className="p-3.5 rounded-xl bg-primary-50/60 dark:bg-primary-950/30 border border-primary-200/60 dark:border-primary-900/40">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-primary-600 dark:text-primary-400">
+                    Rata-rata per Kategori
+                  </span>
+                  <Layers className="w-4 h-4 text-primary-500" />
+                </div>
+                <p className="text-base sm:text-lg font-bold text-primary-600 dark:text-primary-400 mt-1 truncate">
+                  {formatRupiah(avgExpensePerCat)}
+                </p>
+                <p className="text-[10px] text-surface-400 mt-0.5">Dari {catReport.length} kategori aktif</p>
+              </div>
+            </div>
+
+            {/* Mode 1: List Rincian Masing-Masing Kategori */}
+            {categoryViewMode === 'list' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {catReport.map((c, index) => {
+                  const isTop1 = index === 0
+                  const isTop2 = index === 1
+                  const isTop3 = index === 2
+                  const color = c.warna || CHART_COLORS[index % CHART_COLORS.length]
+
+                  return (
+                    <div
+                      key={c.category_id || index}
+                      className="p-3.5 rounded-xl bg-surface-50/70 dark:bg-surface-800/40 border border-surface-200/70 dark:border-surface-700/60 hover:border-surface-300 dark:hover:border-surface-600 transition-all flex flex-col justify-between gap-2.5"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {/* Ranking Badge */}
+                          <span
+                            className={`w-5 h-5 rounded-md text-[11px] font-bold flex items-center justify-center shrink-0 ${
+                              isTop1
+                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'
+                                : isTop2
+                                ? 'bg-slate-200 text-slate-700 dark:bg-slate-700/60 dark:text-slate-300'
+                                : isTop3
+                                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300'
+                                : 'bg-surface-200/70 text-surface-500 dark:bg-surface-700 dark:text-surface-400'
+                            }`}
+                          >
+                            {index + 1}
+                          </span>
+
+                          {/* Category Icon */}
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-white shadow-2xs"
+                            style={{ backgroundColor: color }}
+                          >
+                            {getCategoryIcon(c.ikon, 'w-4 h-4')}
+                          </div>
+
+                          {/* Category Name & Persentase */}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-semibold text-surface-900 dark:text-surface-100 truncate">
+                                {c.nama}
+                              </p>
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-surface-200/80 dark:bg-surface-700 text-surface-700 dark:text-surface-300 shrink-0">
+                                {c.persentase}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Total Nominal */}
+                        <div className="text-right shrink-0">
+                          <span className="text-sm font-bold text-surface-900 dark:text-surface-100">
+                            {formatRupiah(c.total)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Visual Progress Bar */}
+                      <div className="w-full bg-surface-200/70 dark:bg-surface-700/70 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min(100, Math.max(3, c.persentase))}%`,
+                            backgroundColor: color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Mode 2: Horizontal Bar Chart */}
+            {categoryViewMode === 'chart' && (
+              <div className="w-full pt-2">
+                <div style={{ height: `${Math.max(260, catReport.length * 42)}px` }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      layout="vertical"
+                      data={catReport}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <XAxis
+                        type="number"
+                        tick={{ fontSize: 10 }}
+                        tickFormatter={(v) => {
+                          if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`
+                          if (v >= 1000) return `${(v / 1000).toFixed(0)}k`
+                          return v
+                        }}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="nama"
+                        tick={{ fontSize: 11, fill: 'currentColor' }}
+                        width={95}
+                      />
+                      <Tooltip
+                        formatter={(val) => [formatRupiah(val), 'Total Pengeluaran']}
+                        contentStyle={{
+                          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                          borderRadius: '12px',
+                          color: '#fff',
+                          border: 'none',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <Bar dataKey="total" radius={[0, 6, 6, 0]}>
+                        {catReport.map((entry, index) => (
+                          <Cell
+                            key={`cell-bar-${index}`}
+                            fill={entry.warna || CHART_COLORS[index % CHART_COLORS.length]}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Card>
